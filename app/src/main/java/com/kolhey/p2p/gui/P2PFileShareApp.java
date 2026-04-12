@@ -12,6 +12,8 @@ import com.kolhey.p2p.gui.controllers.MainWindowController;
 import com.kolhey.p2p.gui.utils.UITheme;
 import com.kolhey.p2p.gui.utils.UIComponentFactory;
 
+import java.util.List;
+
 /**
  * Main GUI Application for P2P File Sharing
  */
@@ -19,18 +21,29 @@ public class P2PFileShareApp extends Application {
     
     private MainWindowController mainController;
     
+    // Static port configuration (can be set via command line args)
+    public static int configuredQuicPort = 9000;
+    public static int configuredWsPort = 8080;
+    
     @Override
     public void start(Stage primaryStage) {
         try {
+            // Parse command line arguments if provided
+            Parameters params = getParameters();
+            if (!params.getRaw().isEmpty()) {
+                parseCommandLineArgs(params.getRaw());
+            }
+            
             // Configure Stage
-            primaryStage.setTitle("P2P File Sharing - Encrypted");
+            String title = "P2P File Sharing - Encrypted (QUIC: " + configuredQuicPort + ", WS: " + configuredWsPort + ")";
+            primaryStage.setTitle(title);
             primaryStage.setWidth(1200);
             primaryStage.setHeight(800);
             primaryStage.setMinWidth(900);
             primaryStage.setMinHeight(600);
             
-            // Create Main Scene
-            mainController = new MainWindowController();
+            // Create Main Scene with configured ports
+            mainController = new MainWindowController(configuredQuicPort, configuredWsPort);
             VBox root = mainController.createMainLayout();
             
             Scene scene = new Scene(root);
@@ -62,6 +75,30 @@ public class P2PFileShareApp extends Application {
     private void handleWindowClose() {
         mainController.shutdown();
         System.out.println("[GUI] Application closing...");
+    }
+    
+    /**
+     * Parse command line arguments for port configuration
+     * Usage: --quic-port=9000 --ws-port=8080
+     */
+    private void parseCommandLineArgs(List<String> args) {
+        for (String arg : args) {
+            if (arg.startsWith("--quic-port=")) {
+                try {
+                    configuredQuicPort = Integer.parseInt(arg.substring("--quic-port=".length()));
+                    System.out.println("[Config] QUIC Port: " + configuredQuicPort);
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid QUIC port: " + arg);
+                }
+            } else if (arg.startsWith("--ws-port=")) {
+                try {
+                    configuredWsPort = Integer.parseInt(arg.substring("--ws-port=".length()));
+                    System.out.println("[Config] WebSocket Port: " + configuredWsPort);
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid WS port: " + arg);
+                }
+            }
+        }
     }
     
     public static void main(String[] args) {

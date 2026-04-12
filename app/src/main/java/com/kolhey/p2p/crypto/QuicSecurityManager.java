@@ -50,7 +50,8 @@ public class QuicSecurityManager {
             .applicationProtocols(P2P_ALPN_PROTOCOL);
         
         if (peerDatabase != null) {
-            TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase);
+            // Enable TOFU (Trust-On-First-Use): unknown peers auto-trusted on first connection
+            TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase, true);
             builder.trustManager(trustManager);
         }
 
@@ -83,7 +84,8 @@ public class QuicSecurityManager {
                 builder.trustManager(io.netty.handler.ssl.util.InsecureTrustManagerFactory.INSTANCE);
             } else {
                 if (peerDatabase != null) {
-                    TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase);
+                    // Enable TOFU (Trust-On-First-Use): unknown peers auto-trusted on first connection
+                    TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase, true);
                     builder.trustManager(trustManager);
                 } else {
                     File trustCertFile = getRequiredFile("p2p.quic.trustCert", "P2P_QUIC_TRUST_CERT");

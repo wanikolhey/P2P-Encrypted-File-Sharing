@@ -10,14 +10,15 @@ import com.kolhey.p2p.io.FileIOService;
 public class FileTransferStreamHandler extends ChannelInboundHandlerAdapter {
 
     private final FileIOService fileIOService = new FileIOService();
+    
+    // State tracking for incoming files - each handler instance has its own state
     private boolean headerReceived = false;
     private String currentFileName;
     private long currentFileSize;
     private long totalBytesRead = 0; // Track progress for state reset
-    private final boolean isSender;
 
     public FileTransferStreamHandler(boolean isSender) {
-        this.isSender = isSender;
+        // isSender parameter reserved for future use (e.g., client-side vs server-side logging)
     }
 
     @Override
@@ -82,6 +83,7 @@ public class FileTransferStreamHandler extends ChannelInboundHandlerAdapter {
                     System.out.println("[Receiver] Transfer complete: " + currentFileName);
                     this.headerReceived = false;
                     this.currentFileName = null;
+                    this.totalBytesRead = 0;
                 }
             }
         } catch (Exception e) {

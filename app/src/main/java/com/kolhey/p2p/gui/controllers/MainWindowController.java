@@ -8,6 +8,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import com.kolhey.p2p.gui.utils.P2PServiceManager;
 import com.kolhey.p2p.gui.utils.UIComponentFactory;
@@ -37,15 +38,28 @@ public class MainWindowController implements Observer {
     private ProgressIndicator loadingIndicator;
     private TabPane tabPane;
     
+    // Port configuration
+    private int configuredQuicPort;
+    private int configuredWsPort;
+    
     public MainWindowController() {
+        this(9000, 8080);  // Default ports
+    }
+    
+    public MainWindowController(int quicPort, int wsPort) {
         this.serviceManager = P2PServiceManager.getInstance();
         this.serviceManager.addObserver(this);
         this.executorService = Executors.newFixedThreadPool(2);
+        this.configuredQuicPort = quicPort;
+        this.configuredWsPort = wsPort;
     }
     
     public VBox createMainLayout() {
         VBox mainLayout = new VBox();
         mainLayout.setStyle("-fx-background-color: #F5F5F5;");
+        mainLayout.setFillWidth(true);
+        mainLayout.setPrefHeight(Double.MAX_VALUE);
+        mainLayout.setMaxHeight(Double.MAX_VALUE);
         
         // Header
         HBox header = createHeader();
@@ -54,6 +68,7 @@ public class MainWindowController implements Observer {
         tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabPane.setPrefHeight(Double.MAX_VALUE);
+        tabPane.setMaxHeight(Double.MAX_VALUE);
         
         // Tab 1: Dashboard
         Tab dashboardTab = createDashboardTab();
@@ -315,7 +330,7 @@ public class MainWindowController implements Observer {
         executorService.execute(() -> {
             try {
                 String nodeName = "Node-" + UUID.randomUUID().toString().substring(0, 4);
-                serviceManager.startNode(nodeName, 9000, 8080);
+                serviceManager.startNode(nodeName, configuredQuicPort, configuredWsPort);
                 
                 Platform.runLater(() -> {
                     statusIndicator.setFill(UITheme.SUCCESS);

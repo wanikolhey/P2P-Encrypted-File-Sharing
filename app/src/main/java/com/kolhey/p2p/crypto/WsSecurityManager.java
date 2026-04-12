@@ -38,7 +38,8 @@ public class WsSecurityManager {
             SslContextBuilder builder = SslContextBuilder.forServer(certChainFile, privateKeyFile);
             
             if (peerDatabase != null) {
-                TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase);
+                // Enable TOFU (Trust-On-First-Use): unknown peers auto-trusted on first connection
+                TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase, true);
                 builder.trustManager(trustManager);
             }
             
@@ -73,7 +74,8 @@ public class WsSecurityManager {
                 builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
             } else {
                 if (peerDatabase != null) {
-                    TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase);
+                    // Enable TOFU (Trust-On-First-Use): unknown peers auto-trusted on first connection
+                    TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase, true);
                     builder.trustManager(trustManager);
                 } else {
                     File trustCertFile = getRequiredFile("p2p.ws.trustCert", "P2P_WS_TRUST_CERT");

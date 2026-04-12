@@ -42,10 +42,12 @@ dependencies {
         osName.contains("win") -> "win"
         osName.contains("mac") && osArch.contains("aarch64") -> "mac-aarch64"
         osName.contains("mac") -> "mac"
+        osName.contains("linux") && osArch.contains("aarch64") -> "linux-aarch_64"
         osName.contains("linux") -> "linux"
         else -> throw GradleException("Unsupported OS for JavaFX: $osName / $osArch")
     }
     
+    implementation("org.openjfx:javafx-base:$javafxVersion:$javafxPlatform")
     implementation("org.openjfx:javafx-controls:$javafxVersion:$javafxPlatform")
     implementation("org.openjfx:javafx-fxml:$javafxVersion:$javafxPlatform")
     implementation("org.openjfx:javafx-graphics:$javafxVersion:$javafxPlatform")
@@ -103,15 +105,15 @@ java {
 }
 
 application {
-    // Define the main class for the application.
-    mainClass = "com.kolhey.p2p.Main"
+    // Define the main class for the application - GUI-based only
+    mainClass = "com.kolhey.p2p.Main"  // Points to Main which launches P2PFileShareApp
 }
 
-<<<<<<< HEAD
 tasks.run.get().apply {
     // Pass system properties to the run task for development mode
     systemProperties["p2p.allowInsecureDevTls"] = System.getProperty("p2p.allowInsecureDevTls") ?: "true"
-=======
+}
+
 // GUI task
 tasks.register("runGui", JavaExec::class) {
     group = "application"
@@ -122,5 +124,4 @@ tasks.register("runGui", JavaExec::class) {
         "--add-modules", "javafx.controls,javafx.fxml",
         "--add-opens", "javafx.graphics/com.sun.javafx.scene.behavior=ALL-UNNAMED"
     )
->>>>>>> fbbd9eb (gui)
 }

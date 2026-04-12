@@ -7,6 +7,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SqlitePeerDatabase implements PeerDatabase {
     private final String dbUrl;
@@ -95,5 +97,26 @@ public class SqlitePeerDatabase implements PeerDatabase {
         } catch (SQLException e) {
             System.err.println("Database delete error: " + e.getMessage());
         }
+    }
+
+    @Override
+    public Map<String, String> getAllTrustedPeers() {
+        String sql = "SELECT fingerprint, name FROM peers ORDER BY trusted_at DESC";
+        Map<String, String> peers = new HashMap<>();
+
+        try (Connection conn = DriverManager.getConnection(dbUrl);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                String fingerprint = rs.getString("fingerprint");
+                String name = rs.getString("name");
+                peers.put(fingerprint, name);
+            }
+        } catch (SQLException e) {
+            System.err.println("Database read error: " + e.getMessage());
+        }
+
+        return peers;
     }
 }

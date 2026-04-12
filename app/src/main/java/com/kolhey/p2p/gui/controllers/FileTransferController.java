@@ -7,6 +7,9 @@ import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import com.kolhey.p2p.gui.utils.P2PServiceManager;
@@ -47,7 +50,9 @@ public class FileTransferController {
         scrollPane.setFitToWidth(true);
         scrollPane.setStyle("-fx-background-color: #F5F5F5;");
         
-        return scrollPane;
+        container.getChildren().add(scrollPane);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+        return container;
     }
     
     private VBox createSendFileSection() {
@@ -84,7 +89,7 @@ public class FileTransferController {
         
         Button selectFileBtn = UIComponentFactory.createPrimaryButton("📂 Select File");
         selectFileBtn.setOnAction(event -> {
-            File file = openFileChooser();
+            File file = openFileChooser(new Stage());
             if (file != null) {
                 selectedFile = file;
                 selectedFileLabel.setText("Selected: " + file.getName() + " (" + formatFileSize(file.length()) + ")");

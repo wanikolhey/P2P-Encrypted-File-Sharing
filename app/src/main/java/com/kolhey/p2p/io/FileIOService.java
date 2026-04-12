@@ -12,8 +12,6 @@ import java.nio.charset.StandardCharsets;
 public class FileIOService {
 
     private static final int CHUNK_SIZE = 64 * 1024; // 64KB chunks
-    private FileOutputStream currentDownloadStream;
-    private long bytesReceived = 0;
 
     /**
      * Prepares a header ByteBuf to be sent before the file data.
@@ -45,23 +43,35 @@ public class FileIOService {
 
     /**
      * Writes incoming bytes to a file in the downloads folder.
+     * ⚠️ IMPORTANT: Each handler instance should call this method within a try-finally or catch block
+     * to ensure proper cleanup. This method is NOT thread-safe and should be called only from one thread.
+     * 
+     * @param fileName the name of the file being downloaded
+     * @param data the ByteBuf containing chunk data
+     * @param totalSize the total expected file size (used to detect completion)
+     * @throws IOException if file I/O fails
      */
     public void saveChunk(String fileName, ByteBuf data, long totalSize) throws IOException {
-        if (currentDownloadStream == null) {
-            File downloadDir = new File("downloads");
-            if (!downloadDir.exists()) downloadDir.mkdirs();
-            currentDownloadStream = new FileOutputStream(new File(downloadDir, fileName));
-            bytesReceived = 0;
+        File downloadDir = new File("downloads");
+        if (!downloadDir.exists()) {
+            downloadDir.mkdirs();
         }
-
+        
+        File targetFile = new File(downloadDir, fileName);
         int readableBytes = data.readableBytes();
-        data.readBytes(currentDownloadStream.getChannel(), bytesReceived, readableBytes);
-        bytesReceived += readableBytes;
-
-        if (bytesReceived >= totalSize) {
-            currentDownloadStream.close();
-            currentDownloadStream = null;
-            System.out.println("File saved successfully: " + fileName);
+        
+        // CRITICAL: Use try-with-resources to ensure FileOutputStream is ALWAYS closed
+        // This prevents file handle leaks if an exception occurs
+        try (FileOutputStream fos = new FileOutputStream(targetFile, true)) {
+            data.readBytes(fos.getChannel(), 0, readableBytes);
+            fos.flush();
+            
+            // Check if this is the final chunk by comparing file size to totalSize
+            long currentSize = targetFile.length();
+            if (currentSize >= totalSize) {
+                System.out.println("File saved successfully: " + fileName);
+            }
         }
+        // FileOutputStream automatically closes in the finally block, preventing leaks
     }
 }

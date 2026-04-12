@@ -16,7 +16,7 @@ public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocket
     private static final int MAX_TEXT_MESSAGE_LENGTH = 1024;
     private final FileIOService fileIOService = new FileIOService();
     
-    // State tracking for incoming files
+    // State tracking for incoming files - each handler instance has its own state
     private boolean headerReceived = false;
     private String currentFileName;
     private long currentFileSize;
@@ -84,6 +84,7 @@ public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocket
                     // Reset state for the next potential file on this connection
                     headerReceived = false;
                     currentFileName = null;
+                    totalBytesRead = 0;
                 }
             }
         } catch (IOException e) {
