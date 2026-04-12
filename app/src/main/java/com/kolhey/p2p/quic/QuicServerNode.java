@@ -1,5 +1,7 @@
 package com.kolhey.p2p.quic;
 
+import com.kolhey.p2p.crypto.QuicSecurityManager;
+import com.kolhey.p2p.database.PeerDatabase;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -14,20 +16,20 @@ import io.netty.incubator.codec.quic.QuicStreamChannel;
 
 import java.net.InetSocketAddress;
 
-import com.kolhey.p2p.crypto.QuicSecurityManager;
-
 public class QuicServerNode {
 
     private static final boolean ALLOW_INSECURE_DEV_TLS = Boolean.getBoolean("p2p.allowInsecureDevTls");
     
     private final String bindIp;
     private final int bindPort;
+    private final PeerDatabase peerDatabase;
     private Channel serverChannel;
     private NioEventLoopGroup group;
 
-    public QuicServerNode(String bindIp, int bindPort) {
+    public QuicServerNode(String bindIp, int bindPort, PeerDatabase peerDatabase) {
         this.bindIp = bindIp;
         this.bindPort = bindPort;
+        this.peerDatabase = peerDatabase;
     }
 
     public void start() 
@@ -35,7 +37,7 @@ public class QuicServerNode {
         group = new NioEventLoopGroup(1);
 
         QuicServerCodecBuilder serverCodecBuilder = new QuicServerCodecBuilder()
-            .sslContext(QuicSecurityManager.buildServerSslContext())
+            .sslContext(QuicSecurityManager.buildServerSslContext(peerDatabase))
             .maxIdleTimeout(5000, java.util.concurrent.TimeUnit.MILLISECONDS)
             .initialMaxData(10000000)
             .initialMaxStreamDataBidirectionalLocal(1000000)

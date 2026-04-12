@@ -44,6 +44,8 @@ dependencies {
 
     implementation("org.jmdns:jmdns:3.5.9")
 
+    implementation("org.xerial:sqlite-jdbc:3.45.1.0")
+
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.1")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.1")
@@ -51,6 +53,7 @@ dependencies {
 
     testImplementation("org.mockito:mockito-core:5.11.0")
     testImplementation("org.mockito:mockito-junit-jupiter:5.11.0")
+
 }
 
 tasks.test {
@@ -87,4 +90,9 @@ java {
 application {
     // Define the main class for the application.
     mainClass = "com.kolhey.p2p.Main"
+}
+
+tasks.run.get().apply {
+    // Pass system properties to the run task for development mode
+    systemProperties["p2p.allowInsecureDevTls"] = System.getProperty("p2p.allowInsecureDevTls") ?: "true"
 }

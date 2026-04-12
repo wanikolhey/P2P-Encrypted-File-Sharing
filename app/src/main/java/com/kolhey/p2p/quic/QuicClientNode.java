@@ -1,6 +1,7 @@
 package com.kolhey.p2p.quic;
 
 import com.kolhey.p2p.crypto.QuicSecurityManager;
+import com.kolhey.p2p.database.PeerDatabase;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
@@ -17,9 +18,14 @@ import java.net.InetSocketAddress;
 
 public class QuicClientNode {
 
+    private final PeerDatabase peerDatabase;
     private NioEventLoopGroup group;
     private Channel clientChannel;
     private Channel datagramChannel;
+
+    public QuicClientNode(PeerDatabase peerDatabase) {
+        this.peerDatabase = peerDatabase;
+    }
 
     public void connectAndSend(String targetIp, int targetPort) throws Exception {
         stop();
@@ -29,7 +35,7 @@ public class QuicClientNode {
 
         try {
             ChannelHandler codec = new QuicClientCodecBuilder()
-                    .sslContext(QuicSecurityManager.buildClientSslContext())
+                    .sslContext(QuicSecurityManager.buildClientSslContext(peerDatabase))
                     .maxIdleTimeout(5000, java.util.concurrent.TimeUnit.MILLISECONDS)
                     .initialMaxData(10000000)
                     .initialMaxStreamDataBidirectionalLocal(1000000)

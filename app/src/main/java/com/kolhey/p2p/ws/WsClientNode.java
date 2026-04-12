@@ -1,6 +1,7 @@
 package com.kolhey.p2p.ws;
 
 import com.kolhey.p2p.crypto.WsSecurityManager;
+import com.kolhey.p2p.database.PeerDatabase;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -24,12 +25,17 @@ import java.net.URI;
 
 public class WsClientNode {
 
+    private final PeerDatabase peerDatabase;
     private EventLoopGroup group;
     private Channel clientChannel;
 
+    public WsClientNode(PeerDatabase peerDatabase) {
+        this.peerDatabase = peerDatabase;
+    }
+
     public void connectAndSend(String targetIp, int targetPort) throws Exception {
         group = new NioEventLoopGroup();
-        final SslContext sslCtx = WsSecurityManager.buildClientSslContext();
+        final SslContext sslCtx = WsSecurityManager.buildClientSslContext(peerDatabase);
 
         URI uri = new URI("wss://" + targetIp + ":" + targetPort + "/p2p");
 

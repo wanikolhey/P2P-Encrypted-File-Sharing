@@ -1,8 +1,13 @@
 package com.kolhey.p2p.quic;
 
+import com.kolhey.p2p.database.PeerDatabase;
+import com.kolhey.p2p.database.SqlitePeerDatabase;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
@@ -10,6 +15,8 @@ class QuicIntegrationTest {
 
     private static QuicServerNode server;
     private static QuicClientNode client;
+    private static PeerDatabase peerDatabase;
+    private static Path tempDir;
     
     // Use localhost and a specific port for the loopback test
     private static final String LOCALHOST = "127.0.0.1";
@@ -19,27 +26,31 @@ class QuicIntegrationTest {
     static void setupServer() throws Exception {
         System.out.println("--- Starting Test Setup ---");
         
-        // 1. Initialize and start the server
-        server = new QuicServerNode(LOCALHOST, TEST_PORT);
+        // 1. Create a temporary directory for the test peer database
+        tempDir = Files.createTempDirectory("p2p-test-");
+        peerDatabase = new SqlitePeerDatabase(tempDir.toString());
+        
+        // 2. Initialize and start the server
+        server = new QuicServerNode(LOCALHOST, TEST_PORT, peerDatabase);
         server.start();
         
-        // 2. Give the Netty boss group a moment to successfully bind to the UDP port
+        // 3. Give the Netty boss group a moment to successfully bind to the UDP port
         Thread.sleep(500);
         
-        // 3. Initialize the client
-        client = new QuicClientNode();
+        // 4. Initialize the client
+        client = new QuicClientNode(peerDatabase);
     }
 
     @Test
     void testQuicConnectionAndStream() {
         System.out.println("--- Executing QUIC Connection Test ---");
         
-        // 4. Assert that the client can complete the TLS 1.3 handshake 
+        // 5. Assert that the client can complete the TLS 1.3 handshake 
         // and open a bidirectional stream without throwing any exceptions
         assertDoesNotThrow(() -> {
             client.connectAndSend(LOCALHOST, TEST_PORT);
             
-            // 5. Pause the main test thread. 
+            // 6. Pause the main test thread. 
             // Because Netty reads/writes on separate I/O threads, we must keep the 
             // JVM alive long enough for the FileTransferStreamHandler to exchange 
             // the "P2P_HANDSHAKE_INIT" and "ACK" messages.
@@ -51,12 +62,29 @@ class QuicIntegrationTest {
     @AfterAll
     static void teardown() {
         System.out.println("--- Tearing Down Network Layer ---");
-        // 6. Gracefully shut down the Netty EventLoopGroups to free the ports
+        // 7. Gracefully shut down the Netty EventLoopGroups to free the ports
         if (client != null) {
             client.stop();
         }
         if (server != null) {
             server.stop();
+        }
+        
+        // 8. Clean up temporary directory
+        if (tempDir != null) {
+            try {
+                Files.walk(tempDir)
+                    .sorted((a, b) -> b.compareTo(a))
+                    .forEach(path -> {
+                        try {
+                            Files.delete(path);
+                        } catch (Exception e) {
+                            System.err.println("Failed to delete " + path + ": " + e.getMessage());
+                        }
+                    });
+            } catch (Exception e) {
+                System.err.println("Failed to clean up temp directory: " + e.getMessage());
+            }
         }
     }
 }
