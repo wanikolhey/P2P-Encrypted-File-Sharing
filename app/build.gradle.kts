@@ -36,6 +36,21 @@ dependencies {
     // This dependency is used by the application.
     implementation(libs.guava)
 
+    // JavaFX for GUI
+    val javafxVersion = "21.0.3"
+    val javafxPlatform = when {
+        osName.contains("win") -> "win"
+        osName.contains("mac") && osArch.contains("aarch64") -> "mac-aarch64"
+        osName.contains("mac") -> "mac"
+        osName.contains("linux") -> "linux"
+        else -> throw GradleException("Unsupported OS for JavaFX: $osName / $osArch")
+    }
+    
+    implementation("org.openjfx:javafx-controls:$javafxVersion:$javafxPlatform")
+    implementation("org.openjfx:javafx-fxml:$javafxVersion:$javafxPlatform")
+    implementation("org.openjfx:javafx-graphics:$javafxVersion:$javafxPlatform")
+    implementation("org.openjfx:javafx-swing:$javafxVersion:$javafxPlatform")
+
     implementation("io.netty:netty-all:4.1.107.Final")
     implementation("io.netty.incubator:netty-incubator-codec-classes-quic:0.0.62.Final")
     runtimeOnly("io.netty.incubator:netty-incubator-codec-native-quic:0.0.62.Final:$quicNativeClassifier")
@@ -92,7 +107,20 @@ application {
     mainClass = "com.kolhey.p2p.Main"
 }
 
+<<<<<<< HEAD
 tasks.run.get().apply {
     // Pass system properties to the run task for development mode
     systemProperties["p2p.allowInsecureDevTls"] = System.getProperty("p2p.allowInsecureDevTls") ?: "true"
+=======
+// GUI task
+tasks.register("runGui", JavaExec::class) {
+    group = "application"
+    description = "Run the P2P File Sharing GUI application"
+    mainClass = "com.kolhey.p2p.gui.P2PFileShareApp"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs = listOf(
+        "--add-modules", "javafx.controls,javafx.fxml",
+        "--add-opens", "javafx.graphics/com.sun.javafx.scene.behavior=ALL-UNNAMED"
+    )
+>>>>>>> fbbd9eb (gui)
 }

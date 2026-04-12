@@ -4,18 +4,24 @@ import com.kolhey.p2p.database.PeerDatabase;
 import com.kolhey.p2p.database.SqlitePeerDatabase;
 import com.kolhey.p2p.discovery.NetworkUtil;
 import com.kolhey.p2p.discovery.PeerDiscoveryManager;
+<<<<<<< HEAD
 import com.kolhey.p2p.quic.QuicClientNode;
 import com.kolhey.p2p.quic.QuicServerNode;
 import com.kolhey.p2p.ws.WsClientNode;
 import com.kolhey.p2p.ws.WsServerNode;
 import javax.jmdns.ServiceInfo;
+=======
+import com.kolhey.p2p.gui.P2PFileShareApp;
+>>>>>>> fbbd9eb (gui)
 
 import java.net.InetAddress;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.UUID;
+import java.util.Scanner;
 
 public class Main {
+<<<<<<< HEAD
     public static void main(String[] args) throws Exception {
         System.out.println("--- Starting Secure P2P Node ---\n");
 
@@ -31,6 +37,27 @@ public class Main {
             System.out.println("✓ Production mode - PeerIdentityTrustManager ACTIVE");
         }
         System.out.println("==============================\n");
+=======
+    public static void main(String[] args) throws InterruptedException {
+        // Check if GUI mode is requested
+        if (args.length > 0 && args[0].equalsIgnoreCase("--gui")) {
+            // Launch GUI application
+            System.out.println("Starting P2P File Sharing GUI...");
+            P2PFileShareApp.launch(P2PFileShareApp.class);
+            return;
+        }
+        
+        // Check for CLI mode flag
+        if (args.length > 0 && args[0].equalsIgnoreCase("--help")) {
+            printHelp();
+            return;
+        }
+        
+        // Default: CLI mode
+        System.out.println("--- Starting P2P Node (CLI Mode) ---");
+        System.out.println("Tip: Use '--gui' flag to launch the GUI: java com.kolhey.p2p.Main --gui");
+        System.out.println();
+>>>>>>> fbbd9eb (gui)
 
         String nodeName = "Node-" + UUID.randomUUID().toString().substring(0, 4);
         InetAddress localIp = NetworkUtil.getLocalIPv4Address();
@@ -279,5 +306,17 @@ public class Main {
         } catch (Exception e) {
             System.err.println("Connection failed: " + e.getMessage());
         }
+    }
+    
+    private static void printHelp() {
+        System.out.println("P2P File Sharing Application - Help\n");
+        System.out.println("Usage: java com.kolhey.p2p.Main [options]\n");
+        System.out.println("Options:");
+        System.out.println("  --gui         Launch the GUI application (recommended for most users)");
+        System.out.println("  --help        Display this help message");
+        System.out.println("  (no args)     Start in CLI mode with peer discovery\n");
+        System.out.println("Examples:");
+        System.out.println("  java com.kolhey.p2p.Main --gui      # Launch the desktop GUI");
+        System.out.println("  java com.kolhey.p2p.Main            # Start CLI mode\n");
     }
 }
