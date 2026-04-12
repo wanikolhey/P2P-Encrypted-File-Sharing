@@ -5,14 +5,17 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
+import com.kolhey.p2p.io.FileIOService;
 
 public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
 
     private static final int MAX_TEXT_MESSAGE_LENGTH = 1024;
-    private static final int MAX_BINARY_FRAME_BYTES = 1024 * 1024;
     private static final String HANDSHAKE_INIT = "{\"action\": \"P2P_HANDSHAKE_INIT\"}";
     private static final String HANDSHAKE_ACK = "{\"status\": \"ACK_READY\"}";
-
+    private final FileIOService fileIOService = new FileIOService();
+    private boolean headerReceived = false;
+    private String currentFileName;
+    private long currentFileSize;
     private final boolean isClient;
 
     public WsFileTransferHandler(boolean isClient) {
@@ -52,12 +55,35 @@ public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocket
         } 
         else if (frame instanceof BinaryWebSocketFrame) {
             io.netty.buffer.ByteBuf buffer = frame.content();
-            if (buffer.readableBytes() > MAX_BINARY_FRAME_BYTES) {
-                System.err.println("WebSocket stream error: oversized binary frame");
-                ctx.close();
-                return;
+
+            try {
+                if (!headerReceived) {
+            // --- STAGE 1: RECEIVE BINARY METADATA ---
+            // Expecting: [Int: NameLength][String: FileName][Long: FileSize]
+                if (buffer.readableBytes() < 4) return;
+
+                int nameLength = buffer.readInt();
+                if (buffer.readableBytes() < nameLength + 8) return;
+
+                byte[] nameBytes = new byte[nameLength];
+                buffer.readBytes(nameBytes);
+                this.currentFileName = new String(nameBytes, java.nio.charset.StandardCharsets.UTF_8);
+                this.currentFileSize = buffer.readLong();
+
+                this.headerReceived = true;
+                System.out.println("[WS Receiver] Starting transfer for: " + currentFileName);
+            } else {
+            // --- STAGE 2: RECEIVE FILE CHUNKS ---
+            // Pass the binary frame content to the IO service
+                fileIOService.saveChunk(currentFileName, buffer, currentFileSize);
+            
+            // Note: SimpleChannelInboundHandler handles reference counting (releasing the buffer)
+            // so we don't need a manual release here like in the QUIC handler.
             }
-            System.out.println((isClient ? "[Client]" : "[Server]") + " Received Binary Chunk of size: " + buffer.readableBytes());
+        } catch (Exception e) {
+            System.err.println("WebSocket I/O Error: " + e.getMessage());
+            ctx.close();
+        }
         }
     }
 

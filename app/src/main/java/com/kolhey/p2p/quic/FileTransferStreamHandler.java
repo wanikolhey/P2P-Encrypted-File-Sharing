@@ -6,13 +6,14 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
+import com.kolhey.p2p.io.FileIOService;
 
 public class FileTransferStreamHandler extends ChannelInboundHandlerAdapter {
 
-    private static final int MAX_CONTROL_MESSAGE_BYTES = 1024;
-    private static final String HANDSHAKE_INIT = "P2P_HANDSHAKE_INIT";
-    private static final String HANDSHAKE_ACK = "ACK: Ready for file chunks";
-
+    private final FileIOService fileIOService = new FileIOService();
+    private boolean headerReceived = false;
+    private String currentFileName;
+    private long currentFileSize;
     private final boolean isSender;
 
     public FileTransferStreamHandler(boolean isSender) {
@@ -38,31 +39,33 @@ public class FileTransferStreamHandler extends ChannelInboundHandlerAdapter {
 
         ByteBuf in = (ByteBuf) msg;
         try {
-            if (in.readableBytes() > MAX_CONTROL_MESSAGE_BYTES) {
-                System.err.println("Stream error: oversized control payload");
-                ctx.close();
-                return;
-            }
+            if (!headerReceived) {
+            // --- STAGE 1: RECEIVE METADATA (HEADER) ---
+            // Expecting: [Int: NameLength][String: FileName][Long: FileSize]
+            if (in.readableBytes() < 4) return; // Wait for at least the name length integer
 
-            String receivedText = in.toString(CharsetUtil.UTF_8);
-            
-            if (!isSender) {
-                if (!HANDSHAKE_INIT.equals(receivedText)) {
-                    System.err.println("Stream error: invalid client handshake message");
-                    ctx.close();
-                    return;
-                }
-                System.out.println("[Server] Received from peer: " + receivedText);
-                ByteBuf ack = Unpooled.copiedBuffer(HANDSHAKE_ACK, CharsetUtil.UTF_8);
-                ctx.writeAndFlush(ack);
-            } else {
-                if (!HANDSHAKE_ACK.equals(receivedText)) {
-                    System.err.println("Stream error: invalid server acknowledgement");
-                    ctx.close();
-                    return;
-                }
-                System.out.println("[Client] Peer responded with: " + receivedText);
+            int nameLength = in.readInt();
+            if (in.readableBytes() < nameLength + 8) return; // Wait for full name and long size
+
+            byte[] nameBytes = new byte[nameLength];
+            in.readBytes(nameBytes);
+            this.currentFileName = new String(nameBytes, CharsetUtil.UTF_8);
+            this.currentFileSize = in.readLong();
+
+            this.headerReceived = true;
+            System.out.println("[Receiver] Starting transfer for: " + currentFileName + " (" + currentFileSize + " bytes)");
+        } else {
+        // --- STAGE 2: RECEIVE FILE DATA (CHUNKS) ---
+        // Feed the raw ByteBuf directly into your IO service
+            fileIOService.saveChunk(currentFileName, in, currentFileSize);
+        
+        // Optional: Check if the transfer is complete to reset state
+        // (This is handled internally by saveChunk closing the stream)
             }
+        } catch (Exception e) {
+            System.err.println("I/O Error during transfer: " + e.getMessage());
+            ctx.close();
+    
         } finally {
             in.release(); 
         }
