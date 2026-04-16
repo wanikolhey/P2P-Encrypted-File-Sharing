@@ -21,6 +21,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler;
 import io.netty.handler.codec.http.websocketx.WebSocketVersion;
 import io.netty.handler.ssl.SslContext;
 
+import java.io.File;
 import java.net.URI;
 
 public class WsClientNode {
@@ -34,6 +35,10 @@ public class WsClientNode {
     }
 
     public void connectAndSend(String targetIp, int targetPort) throws Exception {
+        connectAndSend(targetIp, targetPort, null);
+    }
+
+    public void connectAndSend(String targetIp, int targetPort, File fileToSend) throws Exception {
         group = new NioEventLoopGroup();
         final SslContext sslCtx = WsSecurityManager.buildClientSslContext(peerDatabase);
 
@@ -60,8 +65,8 @@ public class WsClientNode {
                      public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
                          if (evt == WebSocketClientProtocolHandler.ClientHandshakeStateEvent.HANDSHAKE_COMPLETE) {
                              System.out.println("WSS Handshake Complete! Secure connection established.");
-                             // Now dynamically add our file transfer handler to start sending data
-                             ctx.pipeline().addLast(new WsFileTransferHandler(true));
+                             // Add transfer handler and trigger send on activation.
+                             ctx.pipeline().addLast(new WsFileTransferHandler(true, fileToSend));
                              // Remove this setup handler since we don't need it anymore
                              ctx.pipeline().remove(this); 
                              // Trigger the handler's active state
@@ -76,6 +81,7 @@ public class WsClientNode {
 
         System.out.println("Attempting WSS connection to " + uri.toString() + "...");
         clientChannel = b.connect(targetIp, targetPort).sync().channel();
+        clientChannel.closeFuture().sync();
     }
 
     public void stop() {

@@ -9,13 +9,18 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
-import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import com.kolhey.p2p.gui.utils.P2PServiceManager;
+import com.kolhey.p2p.gui.utils.TransferEvent;
 import com.kolhey.p2p.gui.utils.UIComponentFactory;
-import com.kolhey.p2p.gui.utils.UITheme;
+import javax.jmdns.ServiceInfo;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -27,6 +32,8 @@ public class FileTransferController {
     private ExecutorService executorService;
     private File selectedFile;
     private ListView<HBox> transferListView;
+    private ComboBox<String> recipientCombo;
+    private final Map<String, TransferItemView> transferItems = new HashMap<>();
     
     public FileTransferController(P2PServiceManager serviceManager, ExecutorService executorService) {
         this.serviceManager = serviceManager;
@@ -126,36 +133,45 @@ public class FileTransferController {
             "-fx-font-weight: bold;"
         );
         
-        ComboBox<String> recipientCombo = UIComponentFactory.createStyledComboBox();
+        recipientCombo = UIComponentFactory.createStyledComboBox();
         recipientCombo.setPrefWidth(250);
         recipientCombo.setPromptText("Select a peer...");
-        
-        // Populate recipients from active peers
-        executorService.execute(() -> {
-            Platform.runLater(() -> {
-                recipientCombo.getItems().clear();
-                serviceManager.getActivePeers().keySet().forEach(recipientCombo.getItems()::add);
-                
-                if (recipientCombo.getItems().isEmpty()) {
-                    recipientCombo.setPromptText("No peers available");
-                    recipientCombo.setDisable(true);
-                }
-            });
-        });
+
+        refreshRecipientList();
         
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         
         Button refreshBtn = UIComponentFactory.createSecondaryButton("🔄");
-        refreshBtn.setOnAction(event -> {
-            recipientCombo.getItems().clear();
-            serviceManager.getActivePeers().keySet().forEach(recipientCombo.getItems()::add);
-        });
+        refreshBtn.setOnAction(event -> refreshRecipientList());
         
         box.getChildren().addAll(recipientLabel, recipientCombo, spacer, refreshBtn);
-        box.setStyle("-fx-user-data: " + recipientCombo.getId());
         
         return box;
+    }
+
+    private void refreshRecipientList() {
+        Map<String, ServiceInfo> activePeers = serviceManager.getActivePeers();
+        String currentSelection = recipientCombo != null ? recipientCombo.getValue() : null;
+        String localNodeName = serviceManager.getNodeName();
+
+        List<String> peerNames = new ArrayList<>();
+        for (String peerName : activePeers.keySet()) {
+            if (localNodeName == null || !localNodeName.equals(peerName)) {
+                peerNames.add(peerName);
+            }
+        }
+        peerNames.sort(Comparator.naturalOrder());
+
+        recipientCombo.getItems().setAll(peerNames);
+        recipientCombo.setDisable(peerNames.isEmpty());
+        recipientCombo.setPromptText(peerNames.isEmpty() ? "No peers available" : "Select a peer...");
+
+        if (currentSelection != null && peerNames.contains(currentSelection)) {
+            recipientCombo.setValue(currentSelection);
+        } else {
+            recipientCombo.setValue(null);
+        }
     }
     
     private VBox createTransfersSection() {
@@ -196,36 +212,58 @@ public class FileTransferController {
                 "Please select a file first.");
             return;
         }
+
+        if (recipientCombo == null || recipientCombo.getValue() == null || recipientCombo.getValue().isBlank()) {
+            showAlert(Alert.AlertType.WARNING, "No Recipient Selected",
+                "Please select a recipient peer before sending.");
+            return;
+        }
+
+        String recipient = recipientCombo.getValue();
+        Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmation.setTitle("Confirm File Transfer");
+        confirmation.setHeaderText("Send file to selected peer?");
+        confirmation.setContentText(
+            "Recipient: " + recipient + "\n" +
+            "File: " + selectedFile.getName() + "\n" +
+            "Size: " + formatFileSize(selectedFile.length())
+        );
+
+        if (confirmation.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+            return;
+        }
+
+        File fileToSend = selectedFile;
+        TransferItemView transferItemView = createTransferItem(fileToSend.getName(), "To: " + recipient);
+        transferListView.getItems().add(0, transferItemView.row());
+        transferItemView.progressBar().setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
+        transferItemView.statusLabel().setText("Sending...");
+        transferItemView.percentLabel().setText("...");
         
-        // Add transfer to list
-        HBox transferItem = createTransferItem(selectedFile.getName(), 0);
-        transferListView.getItems().add(transferItem);
-        
-        // Simulate transfer
         executorService.execute(() -> {
-            for (int i = 0; i <= 100; i += 10) {
-                final int progress = i;
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                
+            try {
+                serviceManager.sendFileToPeer(recipient, fileToSend);
                 Platform.runLater(() -> {
-                    // Update progress bar in transfer item
-                    System.out.println("[Transfer] " + selectedFile.getName() + ": " + progress + "%");
+                    transferItemView.progressBar().setProgress(1.0);
+                    transferItemView.statusLabel().setText("Completed");
+                    transferItemView.percentLabel().setText("100%");
+                    showAlert(Alert.AlertType.INFORMATION, "Transfer Complete",
+                        "File sent successfully to " + recipient + ": " + fileToSend.getName());
+                    selectedFile = null;
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    transferItemView.progressBar().setProgress(0.0);
+                    transferItemView.statusLabel().setText("Failed");
+                    transferItemView.percentLabel().setText("0%");
+                    showAlert(Alert.AlertType.ERROR, "Transfer Failed",
+                        "Could not send file to " + recipient + "\nReason: " + e.getMessage());
                 });
             }
-            
-            Platform.runLater(() -> {
-                showAlert(Alert.AlertType.INFORMATION, "Transfer Complete", 
-                    "File sent successfully: " + selectedFile.getName());
-                selectedFile = null;
-            });
         });
     }
     
-    private HBox createTransferItem(String fileName, int progress) {
+    private TransferItemView createTransferItem(String fileName, String peerDisplayText) {
         HBox transferItem = new HBox(10);
         transferItem.setPadding(new Insets(12));
         transferItem.setAlignment(Pos.CENTER_LEFT);
@@ -236,17 +274,27 @@ public class FileTransferController {
             "-fx-background-radius: 5;"
         );
         
+        VBox detailsBox = new VBox(2);
         Label fileLabel = new Label("📄 " + fileName);
         fileLabel.setStyle(
             "-fx-font-size: 11pt;" +
             "-fx-font-weight: bold;"
         );
+        Label recipientLabel = new Label(peerDisplayText);
+        recipientLabel.setStyle(
+            "-fx-font-size: 10pt;" +
+            "-fx-text-fill: #666666;"
+        );
+        detailsBox.getChildren().addAll(fileLabel, recipientLabel);
         
         ProgressBar progressBar = UIComponentFactory.createStyledProgressBar();
-        progressBar.setProgress(progress / 100.0);
+        progressBar.setProgress(0);
         progressBar.setPrefWidth(200);
         
-        Label percentLabel = new Label(progress + "%");
+        Label statusLabel = new Label("Queued");
+        statusLabel.setStyle("-fx-font-size: 10pt; -fx-text-fill: #666666;");
+
+        Label percentLabel = new Label("0%");
         percentLabel.setStyle("-fx-font-size: 10pt;");
         percentLabel.setPrefWidth(40);
         
@@ -261,8 +309,59 @@ public class FileTransferController {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         
-        transferItem.getChildren().addAll(fileLabel, spacer, progressBar, percentLabel, cancelBtn);
-        return transferItem;
+        transferItem.getChildren().addAll(detailsBox, spacer, progressBar, statusLabel, percentLabel, cancelBtn);
+        return new TransferItemView(transferItem, progressBar, statusLabel, percentLabel);
+    }
+
+    public void handleTransferEvent(TransferEvent event) {
+        if (event == null || transferListView == null) {
+            return;
+        }
+
+        Runnable update = () -> {
+            TransferItemView transferItemView = transferItems.get(event.getTransferId());
+
+            if (transferItemView == null) {
+                transferItemView = createTransferItem(event.getFileName(), "From: " + event.getPeerLabel());
+                transferItems.put(event.getTransferId(), transferItemView);
+                transferListView.getItems().add(0, transferItemView.row());
+            }
+
+            double progress = event.getProgressFraction();
+            String percentText = Math.round(progress * 100) + "%";
+
+            switch (event.getType()) {
+                case STARTED -> {
+                    transferItemView.progressBar().setProgress(0.0);
+                    transferItemView.statusLabel().setText("Receiving...");
+                    transferItemView.percentLabel().setText("0%");
+                }
+                case PROGRESS -> {
+                    transferItemView.progressBar().setProgress(progress);
+                    transferItemView.statusLabel().setText("Receiving...");
+                    transferItemView.percentLabel().setText(percentText);
+                }
+                case COMPLETED -> {
+                    transferItemView.progressBar().setProgress(1.0);
+                    transferItemView.statusLabel().setText("Completed");
+                    transferItemView.percentLabel().setText("100%");
+                }
+                case FAILED -> {
+                    transferItemView.progressBar().setProgress(0.0);
+                    transferItemView.statusLabel().setText("Failed");
+                    transferItemView.percentLabel().setText("0%");
+                }
+            }
+        };
+
+        if (Platform.isFxApplicationThread()) {
+            update.run();
+        } else {
+            Platform.runLater(update);
+        }
+    }
+
+    private record TransferItemView(HBox row, ProgressBar progressBar, Label statusLabel, Label percentLabel) {
     }
     
     public void openFileChooser() {

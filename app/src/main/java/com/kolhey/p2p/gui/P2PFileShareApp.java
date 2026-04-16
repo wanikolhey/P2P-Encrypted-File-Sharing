@@ -1,6 +1,7 @@
 package com.kolhey.p2p.gui;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -13,6 +14,7 @@ import com.kolhey.p2p.gui.utils.UITheme;
 import com.kolhey.p2p.gui.utils.UIComponentFactory;
 
 import java.util.List;
+import java.net.URL;
 
 /**
  * Main GUI Application for P2P File Sharing
@@ -47,9 +49,10 @@ public class P2PFileShareApp extends Application {
             VBox root = mainController.createMainLayout();
             
             Scene scene = new Scene(root);
-            scene.getStylesheets().add(getClass().getResource("/styles.css") != null
-                ? getClass().getResource("/styles.css").toExternalForm()
-                : "");
+            URL stylesheetUrl = getClass().getResource("/styles.css");
+            if (stylesheetUrl != null) {
+                scene.getStylesheets().add(stylesheetUrl.toExternalForm());
+            }
             
             // Apply inline CSS
             scene.getRoot().setStyle(
@@ -73,8 +76,12 @@ public class P2PFileShareApp extends Application {
     }
     
     private void handleWindowClose() {
-        mainController.shutdown();
+        if (mainController != null) {
+            mainController.shutdown();
+        }
         System.out.println("[GUI] Application closing...");
+        Platform.exit();
+        System.exit(0);
     }
     
     /**

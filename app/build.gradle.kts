@@ -120,6 +120,7 @@ tasks.register("runGui", JavaExec::class) {
     description = "Run the P2P File Sharing GUI application"
     mainClass = "com.kolhey.p2p.gui.P2PFileShareApp"
     classpath = sourceSets["main"].runtimeClasspath
+    systemProperties["p2p.allowInsecureDevTls"] = System.getProperty("p2p.allowInsecureDevTls") ?: "true"
     jvmArgs = listOf(
         "--add-modules", "javafx.controls,javafx.fxml",
         "--add-opens", "javafx.graphics/com.sun.javafx.scene.behavior=ALL-UNNAMED"

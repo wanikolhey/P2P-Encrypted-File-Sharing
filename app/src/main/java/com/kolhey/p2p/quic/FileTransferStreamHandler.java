@@ -1,11 +1,15 @@
 package com.kolhey.p2p.quic;
 
+import com.kolhey.p2p.gui.utils.P2PServiceManager;
+import com.kolhey.p2p.gui.utils.TransferEvent;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
 import com.kolhey.p2p.io.FileIOService;
+
+import java.util.UUID;
 
 public class FileTransferStreamHandler extends ChannelInboundHandlerAdapter {
 
@@ -16,9 +20,17 @@ public class FileTransferStreamHandler extends ChannelInboundHandlerAdapter {
     private String currentFileName;
     private long currentFileSize;
     private long totalBytesRead = 0; // Track progress for state reset
+    private String currentTransferId;
+    private final P2PServiceManager serviceManager;
 
     public FileTransferStreamHandler(boolean isSender) {
         // isSender parameter reserved for future use (e.g., client-side vs server-side logging)
+        this.serviceManager = null;
+    }
+
+    public FileTransferStreamHandler(boolean isSender, P2PServiceManager serviceManager) {
+        // isSender parameter reserved for future use (e.g., client-side vs server-side logging)
+        this.serviceManager = serviceManager;
     }
 
     @Override
@@ -71,23 +83,33 @@ public class FileTransferStreamHandler extends ChannelInboundHandlerAdapter {
 
                 this.headerReceived = true;
                 this.totalBytesRead = 0;
+                this.currentTransferId = UUID.randomUUID().toString();
                 System.out.println("[Receiver] Starting transfer for: " + currentFileName + " (" + currentFileSize + " bytes)");
+                notifyTransferEvent(TransferEvent.started(currentTransferId, currentFileName,
+                    String.valueOf(ctx.channel().remoteAddress()), currentFileSize));
             } else {
                 // STAGE 2: SAVE CHUNKS
                 int readable = in.readableBytes();
                 fileIOService.saveChunk(currentFileName, in, currentFileSize);
                 totalBytesRead += readable;
+                notifyTransferEvent(TransferEvent.progress(currentTransferId, currentFileName,
+                    String.valueOf(ctx.channel().remoteAddress()), totalBytesRead, currentFileSize));
 
                 // Check if file is finished to reset the handler state
                 if (totalBytesRead >= currentFileSize) {
                     System.out.println("[Receiver] Transfer complete: " + currentFileName);
+                    notifyTransferEvent(TransferEvent.completed(currentTransferId, currentFileName,
+                        String.valueOf(ctx.channel().remoteAddress()), currentFileSize));
                     this.headerReceived = false;
                     this.currentFileName = null;
+                    this.currentTransferId = null;
                     this.totalBytesRead = 0;
                 }
             }
         } catch (Exception e) {
             System.err.println("I/O Error during transfer: " + e.getMessage());
+            notifyTransferEvent(TransferEvent.failed(currentTransferId, currentFileName,
+                String.valueOf(ctx.channel().remoteAddress()), totalBytesRead, currentFileSize, e.getMessage()));
             ctx.close();
         } finally {
             in.release(); 
@@ -97,6 +119,14 @@ public class FileTransferStreamHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         System.err.println("Stream error: " + cause.getMessage());
+        notifyTransferEvent(TransferEvent.failed(currentTransferId, currentFileName,
+            String.valueOf(ctx.channel().remoteAddress()), totalBytesRead, currentFileSize, cause.getMessage()));
         ctx.close();
+    }
+
+    private void notifyTransferEvent(TransferEvent event) {
+        if (serviceManager != null) {
+            serviceManager.notifyTransferEvent(event);
+        }
     }
 }

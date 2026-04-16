@@ -1,5 +1,7 @@
 package com.kolhey.p2p.ws;
 
+import com.kolhey.p2p.gui.utils.P2PServiceManager;
+import com.kolhey.p2p.gui.utils.TransferEvent;
 import com.kolhey.p2p.io.FileIOService;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -10,6 +12,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
 
@@ -21,16 +24,38 @@ public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocket
     private String currentFileName;
     private long currentFileSize;
     private long totalBytesRead = 0;
+    private String currentTransferId;
 
     private final boolean isClient;
+    private final File pendingOutgoingFile;
+    private final P2PServiceManager serviceManager;
 
     public WsFileTransferHandler(boolean isClient) {
+        this(isClient, null, null);
+    }
+
+    public WsFileTransferHandler(boolean isClient, File pendingOutgoingFile) {
+        this(isClient, pendingOutgoingFile, null);
+    }
+
+    public WsFileTransferHandler(boolean isClient, File pendingOutgoingFile, P2PServiceManager serviceManager) {
         this.isClient = isClient;
+        this.pendingOutgoingFile = pendingOutgoingFile;
+        this.serviceManager = serviceManager;
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         System.out.println((isClient ? "[Client]" : "[Server]") + " WebSocket connection established.");
+        if (isClient && pendingOutgoingFile != null) {
+            try {
+                startFileTransfer(ctx, pendingOutgoingFile);
+                ctx.close();
+            } catch (IOException e) {
+                System.err.println("[WS Sender] Failed to send file: " + e.getMessage());
+                ctx.close();
+            }
+        }
     }
 
     @Override
@@ -57,6 +82,7 @@ public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocket
         try {
             if (!headerReceived) {
                 // STAGE 1: PARSE HEADER
+                buffer.markReaderIndex();
                 if (buffer.readableBytes() < 4) return;
                 int nameLength = buffer.readInt();
                 
@@ -72,23 +98,33 @@ public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocket
 
                 this.headerReceived = true;
                 this.totalBytesRead = 0;
+                this.currentTransferId = UUID.randomUUID().toString();
                 System.out.println("[WS Receiver] Preparing to receive: " + currentFileName + " (" + currentFileSize + " bytes)");
+                notifyTransferEvent(TransferEvent.started(currentTransferId, currentFileName,
+                    String.valueOf(ctx.channel().remoteAddress()), currentFileSize));
             } else {
                 // STAGE 2: SAVE CHUNKS
                 int readable = buffer.readableBytes();
                 fileIOService.saveChunk(currentFileName, buffer, currentFileSize);
                 totalBytesRead += readable;
+                notifyTransferEvent(TransferEvent.progress(currentTransferId, currentFileName,
+                    String.valueOf(ctx.channel().remoteAddress()), totalBytesRead, currentFileSize));
 
                 if (totalBytesRead >= currentFileSize) {
                     System.out.println("[WS Receiver] Transfer complete for " + currentFileName);
+                    notifyTransferEvent(TransferEvent.completed(currentTransferId, currentFileName,
+                        String.valueOf(ctx.channel().remoteAddress()), currentFileSize));
                     // Reset state for the next potential file on this connection
                     headerReceived = false;
                     currentFileName = null;
+                    currentTransferId = null;
                     totalBytesRead = 0;
                 }
             }
         } catch (IOException e) {
             System.err.println("WS File I/O Error: " + e.getMessage());
+            notifyTransferEvent(TransferEvent.failed(currentTransferId, currentFileName,
+                String.valueOf(ctx.channel().remoteAddress()), totalBytesRead, currentFileSize, e.getMessage()));
             ctx.close();
         }
     }
@@ -124,6 +160,14 @@ public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocket
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         System.err.println("WebSocket stream error: " + cause.getMessage());
+        notifyTransferEvent(TransferEvent.failed(currentTransferId, currentFileName,
+            String.valueOf(ctx.channel().remoteAddress()), totalBytesRead, currentFileSize, cause.getMessage()));
         ctx.close();
+    }
+
+    private void notifyTransferEvent(TransferEvent event) {
+        if (serviceManager != null) {
+            serviceManager.notifyTransferEvent(event);
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.kolhey.p2p.quic;
 
 import com.kolhey.p2p.crypto.QuicSecurityManager;
 import com.kolhey.p2p.database.PeerDatabase;
+import com.kolhey.p2p.gui.utils.P2PServiceManager;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -23,13 +24,15 @@ public class QuicServerNode {
     private final String bindIp;
     private final int bindPort;
     private final PeerDatabase peerDatabase;
+    private final P2PServiceManager serviceManager;
     private Channel serverChannel;
     private NioEventLoopGroup group;
 
-    public QuicServerNode(String bindIp, int bindPort, PeerDatabase peerDatabase) {
+    public QuicServerNode(String bindIp, int bindPort, PeerDatabase peerDatabase, P2PServiceManager serviceManager) {
         this.bindIp = bindIp;
         this.bindPort = bindPort;
         this.peerDatabase = peerDatabase;
+        this.serviceManager = serviceManager;
     }
 
     public void start() 
@@ -61,7 +64,7 @@ public class QuicServerNode {
             .streamHandler(new ChannelInitializer<QuicStreamChannel>() {
                 @Override
                 protected void initChannel(QuicStreamChannel ch) {
-                    ch.pipeline().addLast(new FileTransferStreamHandler(false));
+                    ch.pipeline().addLast(new FileTransferStreamHandler(false, serviceManager));
                     System.out.println("New stream " + ch);
                 }
             })

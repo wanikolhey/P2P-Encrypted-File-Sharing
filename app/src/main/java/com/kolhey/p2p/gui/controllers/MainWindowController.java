@@ -11,12 +11,14 @@ import javafx.scene.layout.*;
 import javafx.scene.shape.Circle;
 import javafx.util.Duration;
 import com.kolhey.p2p.gui.utils.P2PServiceManager;
+import com.kolhey.p2p.gui.utils.TransferEvent;
 import com.kolhey.p2p.gui.utils.UIComponentFactory;
 import com.kolhey.p2p.gui.utils.UITheme;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.Observable;
 import java.util.Observer;
 
@@ -37,6 +39,8 @@ public class MainWindowController implements Observer {
     private Circle statusIndicator;
     private ProgressIndicator loadingIndicator;
     private TabPane tabPane;
+    private TextField quicPortField;
+    private TextField wsPortField;
     
     // Port configuration
     private int configuredQuicPort;
@@ -58,8 +62,6 @@ public class MainWindowController implements Observer {
         VBox mainLayout = new VBox();
         mainLayout.setStyle("-fx-background-color: #F5F5F5;");
         mainLayout.setFillWidth(true);
-        mainLayout.setPrefHeight(Double.MAX_VALUE);
-        mainLayout.setMaxHeight(Double.MAX_VALUE);
         
         // Header
         HBox header = createHeader();
@@ -67,8 +69,6 @@ public class MainWindowController implements Observer {
         // Tab Pane with different views
         tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        tabPane.setPrefHeight(Double.MAX_VALUE);
-        tabPane.setMaxHeight(Double.MAX_VALUE);
         
         // Tab 1: Dashboard
         Tab dashboardTab = createDashboardTab();
@@ -169,8 +169,10 @@ public class MainWindowController implements Observer {
                 stopNode();
                 toggleButton.setText("▶ Start Node");
             } else {
-                startNode();
-                toggleButton.setText("⏹ Stop Node");
+                if (!applySettingsPorts()) {
+                    return;
+                }
+                startNode(toggleButton);
             }
         });
         return toggleButton;
@@ -293,15 +295,17 @@ public class MainWindowController implements Observer {
         grid.setPadding(new Insets(10));
         
         Label quicLabel = new Label("QUIC Port:");
-        TextField quicField = UIComponentFactory.createStyledTextField("9000");
+        quicPortField = UIComponentFactory.createStyledTextField("9000");
+        quicPortField.setText(String.valueOf(configuredQuicPort));
         
         Label wsLabel = new Label("WebSocket Port:");
-        TextField wsField = UIComponentFactory.createStyledTextField("8080");
+        wsPortField = UIComponentFactory.createStyledTextField("8080");
+        wsPortField.setText(String.valueOf(configuredWsPort));
         
         grid.add(quicLabel, 0, 0);
-        grid.add(quicField, 1, 0);
+        grid.add(quicPortField, 1, 0);
         grid.add(wsLabel, 0, 1);
-        grid.add(wsField, 1, 1);
+        grid.add(wsPortField, 1, 1);
         
         configCard.getChildren().add(grid);
         
@@ -325,7 +329,7 @@ public class MainWindowController implements Observer {
         return settingsTab;
     }
     
-    private void startNode() {
+    private void startNode(Button toggleButton) {
         loadingIndicator.setVisible(true);
         executorService.execute(() -> {
             try {
@@ -337,12 +341,18 @@ public class MainWindowController implements Observer {
                     statusLabel.setText("Status: Online");
                     nodeNameLabel.setText("Node: " + nodeName);
                     loadingIndicator.setVisible(false);
+                    if (toggleButton != null) {
+                        toggleButton.setText("⏹ Stop Node");
+                    }
                 });
                 
                 System.out.println("[MainWindow] Node started: " + nodeName);
             } catch (Exception e) {
                 Platform.runLater(() -> {
                     loadingIndicator.setVisible(false);
+                    if (toggleButton != null) {
+                        toggleButton.setText("▶ Start Node");
+                    }
                     Alert alert = new Alert(Alert.AlertType.ERROR);
                     alert.setTitle("Error");
                     alert.setHeaderText("Failed to start node");
@@ -352,6 +362,43 @@ public class MainWindowController implements Observer {
                 e.printStackTrace();
             }
         });
+    }
+
+    private boolean applySettingsPorts() {
+        try {
+            int quicPort = parsePort(quicPortField != null ? quicPortField.getText() : String.valueOf(configuredQuicPort), "QUIC");
+            int wsPort = parsePort(wsPortField != null ? wsPortField.getText() : String.valueOf(configuredWsPort), "WebSocket");
+
+            configuredQuicPort = quicPort;
+            configuredWsPort = wsPort;
+            return true;
+        } catch (IllegalArgumentException e) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Invalid Port Configuration");
+            alert.setHeaderText("Please fix port settings");
+            alert.setContentText(e.getMessage());
+            alert.showAndWait();
+            return false;
+        }
+    }
+
+    private int parsePort(String rawValue, String label) {
+        String value = rawValue != null ? rawValue.trim() : "";
+        if (value.isEmpty()) {
+            throw new IllegalArgumentException(label + " port cannot be empty.");
+        }
+
+        int port;
+        try {
+            port = Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(label + " port must be a number.");
+        }
+
+        if (port < 1 || port > 65535) {
+            throw new IllegalArgumentException(label + " port must be between 1 and 65535.");
+        }
+        return port;
     }
     
     private void stopNode() {
@@ -378,12 +425,25 @@ public class MainWindowController implements Observer {
             discoveryUpdateTimeline.stop();
         }
         stopNode();
-        executorService.shutdown();
+        serviceManager.deleteObserver(this);
+        executorService.shutdownNow();
+        try {
+            executorService.awaitTermination(2, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
     
     @Override
     public void update(Observable o, Object arg) {
         Platform.runLater(() -> {
+            if (arg instanceof TransferEvent) {
+                if (fileTransferController != null) {
+                    fileTransferController.handleTransferEvent((TransferEvent) arg);
+                }
+                return;
+            }
+
             if ("node_started".equals(arg)) {
                 System.out.println("[MainWindow] Node started event received");
             } else if ("node_stopped".equals(arg)) {

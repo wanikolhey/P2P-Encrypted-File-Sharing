@@ -2,6 +2,7 @@ package com.kolhey.p2p.ws;
 
 import com.kolhey.p2p.crypto.WsSecurityManager;
 import com.kolhey.p2p.database.PeerDatabase;
+import com.kolhey.p2p.gui.utils.P2PServiceManager;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
@@ -19,14 +20,16 @@ public class WsServerNode {
     private final String bindIp;
     private final int bindPort;
     private final PeerDatabase peerDatabase;
+    private final P2PServiceManager serviceManager;
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
     private Channel serverChannel;
 
-    public WsServerNode(String bindIp, int bindPort, PeerDatabase peerDatabase) {
+    public WsServerNode(String bindIp, int bindPort, PeerDatabase peerDatabase, P2PServiceManager serviceManager) {
         this.bindIp = bindIp;
         this.bindPort = bindPort;
         this.peerDatabase = peerDatabase;
+        this.serviceManager = serviceManager;
     }
 
     public void start()
@@ -46,7 +49,7 @@ public class WsServerNode {
                     ch.pipeline().addLast(new HttpServerCodec());
                     ch.pipeline().addLast(new HttpObjectAggregator(65536));
                     ch.pipeline().addLast(new WebSocketServerProtocolHandler("/p2p"));
-                    ch.pipeline().addLast(new WsFileTransferHandler(false));
+                    ch.pipeline().addLast(new WsFileTransferHandler(false, null, serviceManager));
                 }
             });
 
