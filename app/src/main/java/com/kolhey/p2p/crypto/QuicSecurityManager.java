@@ -50,7 +50,7 @@ public class QuicSecurityManager {
             .applicationProtocols(P2P_ALPN_PROTOCOL);
         
         if (peerDatabase != null) {
-            // Enable TOFU (Trust-On-First-Use): unknown peers auto-trusted on first connection
+''            // ENABLE TOFU (TRUST-ON-FIRST-USE): UNKNOWN PEERS AUTO-TRUSTED ON FIRST CONNECTION
             TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase, true);
             builder.trustManager(trustManager);
         }
@@ -84,7 +84,7 @@ public class QuicSecurityManager {
                 builder.trustManager(io.netty.handler.ssl.util.InsecureTrustManagerFactory.INSTANCE);
             } else {
                 if (peerDatabase != null) {
-                    // Enable TOFU (Trust-On-First-Use): unknown peers auto-trusted on first connection
+                    // ENABLE TOFU (TRUST-ON-FIRST-USE): UNKNOWN PEERS AUTO-TRUSTED ON FIRST CONNECTION
                     TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase, true);
                     builder.trustManager(trustManager);
                 } else {

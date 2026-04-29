@@ -115,7 +115,7 @@ public class P2PServiceManager extends Observable {
 
         String protocol = protocolPreference;
 
-        // Notify that we're attempting connection
+        // NOTIFY THAT WE'RE ATTEMPTING CONNECTION
         notifyConnectionEvent(ConnectionEvent.attemptingConnection(peerName, addresses[0], protocol));
 
         if ("QUIC".equals(protocol)) {

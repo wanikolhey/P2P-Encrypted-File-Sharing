@@ -205,7 +205,7 @@ public class PeerDiscoveryController {
         String quicPort = serviceInfo != null ? serviceInfo.getPropertyString("quic_port") : "N/A";
         String wsPort = serviceInfo != null ? serviceInfo.getPropertyString("ws_port") : "N/A";
 
-        // Create detailed connection dialog
+        // CREATE DETAILED CONNECTION DIALOG
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Peer Connection Details");
         alert.setHeaderText("Connecting to: " + peerName);

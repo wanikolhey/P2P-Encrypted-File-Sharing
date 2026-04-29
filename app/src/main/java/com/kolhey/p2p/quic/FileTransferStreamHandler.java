@@ -42,7 +42,7 @@ public class FileTransferStreamHandler extends ChannelInboundHandlerAdapter {
 
         System.out.println("[QUIC Handler] Channel active. Remote: " + remoteAddress);
 
-        // Fire connection event
+        // FIRE CONNECTION EVENT
         if (serviceManager != null) {
             serviceManager.notifyConnectionEvent(
                 ConnectionEvent.peerConnected(remotePeerName, remoteAddress, "QUIC", "Trusted")

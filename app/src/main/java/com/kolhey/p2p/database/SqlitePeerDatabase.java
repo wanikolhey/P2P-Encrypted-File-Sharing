@@ -34,7 +34,7 @@ public class SqlitePeerDatabase implements PeerDatabase {
                 "trusted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                 ");";
 
-        // try-with-resources automatically closes the connection to prevent memory leaks
+        // TRY-WITH-RESOURCES AUTOMATICALLY CLOSES THE CONNECTION TO PREVENT MEMORY LEAKS
         try (Connection conn = DriverManager.getConnection(dbUrl);
              Statement stmt = conn.createStatement()) {
             stmt.execute(createTableSql);

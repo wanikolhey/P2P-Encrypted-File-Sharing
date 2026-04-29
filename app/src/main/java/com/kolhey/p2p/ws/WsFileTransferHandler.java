@@ -53,7 +53,7 @@ public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocket
 
         System.out.println((isClient ? "[WS Client]" : "[WS Server]") + " WebSocket connection established: " + remoteAddress);
 
-        // Fire connection event
+        // FIRE CONNECTION EVENT
         if (serviceManager != null) {
             serviceManager.notifyConnectionEvent(
                 ConnectionEvent.peerConnected(remotePeerName, remoteAddress, "WS", "Trusted")
@@ -146,7 +146,7 @@ public class WsFileTransferHandler extends SimpleChannelInboundHandler<WebSocket
                     System.out.println("[WS Receiver] ✓ Transfer complete for " + currentFileName);
                     notifyTransferEvent(TransferEvent.completed(currentTransferId, currentFileName,
                         String.valueOf(ctx.channel().remoteAddress()), currentFileSize));
-                    // Reset state for the next potential file on this connection
+                    // RESET STATE FOR THE NEXT POTENTIAL FILE ON THIS CONNECTION
                     headerReceived = false;
                     currentFileName = null;
                     currentTransferId = null;
