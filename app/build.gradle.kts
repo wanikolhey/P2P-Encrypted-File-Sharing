@@ -20,24 +20,14 @@ repositories {
     mavenCentral()
 }
 
-val osName = System.getProperty("os.name").lowercase()
-val osArch = System.getProperty("os.arch").lowercase()
-
-val quicNativeClassifier = when {
-    osName.contains("mac") && (osArch.contains("aarch64") || osArch.contains("arm64")) -> "osx-aarch_64"
-    osName.contains("mac") -> "osx-x86_64"
-    osName.contains("linux") && (osArch.contains("aarch64") || osArch.contains("arm64")) -> "linux-aarch_64"
-    osName.contains("linux") -> "linux-x86_64"
-    osName.contains("win") -> "windows-x86_64"
-    else -> throw GradleException("Unsupported OS/arch for Netty QUIC native library: $osName / $osArch")
-}
-
 dependencies {
     // This dependency is used by the application.
     implementation(libs.guava)
 
     // JavaFX for GUI
     val javafxVersion = "21.0.3"
+    val osName = System.getProperty("os.name").lowercase()
+    val osArch = System.getProperty("os.arch").lowercase()
     val javafxPlatform = when {
         osName.contains("win") -> "win"
         osName.contains("mac") && osArch.contains("aarch64") -> "mac-aarch64"
@@ -54,8 +44,6 @@ dependencies {
     implementation("org.openjfx:javafx-swing:$javafxVersion:$javafxPlatform")
 
     implementation("io.netty:netty-all:4.1.107.Final")
-    implementation("io.netty.incubator:netty-incubator-codec-classes-quic:0.0.62.Final")
-    runtimeOnly("io.netty.incubator:netty-incubator-codec-native-quic:0.0.62.Final:$quicNativeClassifier")
     implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
 
@@ -66,7 +54,6 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:6.0.1")
 
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.1")
-    testRuntimeOnly("io.netty.incubator:netty-incubator-codec-native-quic:0.0.62.Final:$quicNativeClassifier")
 
     testImplementation("org.mockito:mockito-core:5.11.0")
     testImplementation("org.mockito:mockito-junit-jupiter:5.11.0")
@@ -106,7 +93,7 @@ java {
 
 application {
     // Define the main class for the application - GUI-based only
-    mainClass = "com.kolhey.p2p.Main"  // Points to Main which launches P2PFileShareApp
+    mainClass = "com.kolhey.p2p.Main"  // Points to Main which launches P2PFileSharingApplication
 }
 
 tasks.run.get().apply {
@@ -118,7 +105,7 @@ tasks.run.get().apply {
 tasks.register("runGui", JavaExec::class) {
     group = "application"
     description = "Run the P2P File Sharing GUI application"
-    mainClass = "com.kolhey.p2p.gui.P2PFileShareApp"
+    mainClass = "com.kolhey.p2p.ui.P2PFileSharingApplication"
     classpath = sourceSets["main"].runtimeClasspath
     systemProperties["p2p.allowInsecureDevTls"] = System.getProperty("p2p.allowInsecureDevTls") ?: "true"
     jvmArgs = listOf(

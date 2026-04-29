@@ -1,0 +1,103 @@
+.root {
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 11pt;
+    -fx-background-color: linear-gradient(to bottom right, #081120, #0E1B2E 55%, #12233A);
+}
+
+.main-container {
+    -fx-background-color: transparent;
+}
+
+.btn-primary {
+    -fx-background-color: linear-gradient(to bottom right, #2DD4BF, #0F766E);
+    -fx-text-fill: #07111D;
+    -fx-font-weight: bold;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-cursor: hand;
+}
+
+.btn-primary:hover {
+    -fx-background-color: linear-gradient(to bottom right, #5EEAD4, #14B8A6);
+}
+
+.btn-secondary {
+    -fx-background-color: rgba(255, 255, 255, 0.08);
+    -fx-text-fill: #EDF5FF;
+    -fx-font-weight: bold;
+    -fx-border-color: #2A4667;
+    -fx-background-radius: 999;
+    -fx-border-radius: 999;
+    -fx-cursor: hand;
+}
+
+.btn-secondary:hover {
+    -fx-background-color: rgba(96, 165, 250, 0.18);
+}
+
+.label-title {
+    -fx-text-fill: #93C5FD;
+}
+
+.label-header {
+    -fx-text-fill: #EDF5FF;
+}
+
+.label-info {
+    -fx-text-fill: #99ADC8;
+}
+
+.card {
+    -fx-background-color: rgba(18, 35, 58, 0.94);
+    -fx-border-color: #2A4667;
+    -fx-border-radius: 16;
+    -fx-background-radius: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.28), 16, 0.12, 0, 8);
+}
+
+.text-field,
+.text-area,
+.combo-box-base {
+    -fx-background-color: #0E1B2E;
+    -fx-text-fill: #EDF5FF;
+    -fx-border-color: #2A4667;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+.tab-pane {
+    -fx-background-color: transparent;
+}
+
+.tab {
+    -fx-background-color: #0E1B2E;
+    -fx-text-fill: #99ADC8;
+}
+
+.tab:selected {
+    -fx-background-color: linear-gradient(to bottom right, #2DD4BF, #60A5FA);
+    -fx-text-fill: #081120;
+}
+
+.progress-bar {
+    -fx-accent: #2DD4BF;
+}
+
+.list-view {
+    -fx-background-color: rgba(8, 17, 32, 0.58);
+    -fx-border-color: #2A4667;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+}
+
+.list-cell {
+    -fx-text-fill: #EDF5FF;
+}
+
+.list-cell:filled:selected {
+    -fx-background-color: rgba(45, 212, 191, 0.22);
+}
+
+.list-cell:filled:hover {
+    -fx-background-color: rgba(96, 165, 250, 0.14);
+}
