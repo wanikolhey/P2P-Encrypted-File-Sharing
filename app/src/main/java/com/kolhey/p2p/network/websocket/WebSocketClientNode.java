@@ -67,22 +67,31 @@ public class WebSocketClientNode {
                  
                  p.addLast(new WebSocketClientProtocolHandler(handshaker));
                  
-                 p.addLast(new SimpleChannelInboundHandler<Object>() {
-                     @Override
-                     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-                         if (evt == WebSocketClientProtocolHandler.ClientHandshakeStateEvent.HANDSHAKE_COMPLETE) {
-                             System.out.println("WSS Handshake Complete! Secure connection established.");
-                             // Add transfer handler and trigger send on activation.
-                             ctx.pipeline().addLast(new WebSocketTransferHandler(true, fileToSend, serviceManager));
-                             // Remove this setup handler since we don't need it anymore
-                             ctx.pipeline().remove(this); 
-                             // Trigger the handler's active state
-                             ctx.pipeline().fireChannelActive();
-                         }
-                     }
-                     @Override
-                     protected void channelRead0(ChannelHandlerContext ctx, Object msg) {}
-                 });
+                p.addLast(new SimpleChannelInboundHandler<Object>() {
+                    @Override
+                    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+                        if (evt == WebSocketClientProtocolHandler.ClientHandshakeStateEvent.HANDSHAKE_COMPLETE) {
+                            System.out.println("WSS Handshake Complete! Secure connection established.");
+                            // Add transfer handler but delay firing channelActive slightly to allow
+                            // the pipeline to finish processing any leftover HTTP objects.
+                            ctx.pipeline().addLast(new WebSocketTransferHandler(true, fileToSend, serviceManager));
+                            // Remove this setup handler since we don't need it anymore
+                            ctx.pipeline().remove(this);
+                            // Schedule a short delayed fire of channelActive to avoid race with
+                            // leftover FullHttpRequest/Response objects being delivered to the
+                            // new handler (which expects WebSocketFrame messages).
+                            ctx.executor().schedule(() -> {
+                                try {
+                                    ctx.pipeline().fireChannelActive();
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }, 100, java.util.concurrent.TimeUnit.MILLISECONDS);
+                        }
+                    }
+                    @Override
+                    protected void channelRead0(ChannelHandlerContext ctx, Object msg) {}
+                });
              }
          });
 

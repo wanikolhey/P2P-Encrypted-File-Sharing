@@ -26,10 +26,15 @@ public class WebSocketSecurityManager {
             if (isInsecureDevTlsAllowed()) {
                 SelfSignedCertificate ssc = new SelfSignedCertificate("p2p-node-ws");
                 SslContextBuilder builder = SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey());
-                
-                // In insecure dev mode, skip custom peer verification and use default trust
-                // PeerIdentityTrustManager requires pre-registered peer fingerprints which we don't have in dev mode
-                
+
+                // In dev mode we were previously bypassing custom peer verification entirely.
+                // If a PeerRepository is provided we should still enable TOFU so local
+                // developer runs exercise the same trust logic (auto-trust on first use).
+                if (peerDatabase != null) {
+                    javax.net.ssl.TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase, true);
+                    builder.trustManager(trustManager);
+                }
+
                 return builder.build();
             }
             
@@ -69,9 +74,14 @@ public class WebSocketSecurityManager {
             SslContextBuilder builder = SslContextBuilder.forClient();
             
             if (isInsecureDevTlsAllowed()) {
-                // In insecure dev mode, use default insecure trust manager
-                // PeerIdentityTrustManager requires pre-registered peer fingerprints which we don't have in dev mode
-                builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
+                // Prefer TOFU over fully insecure trust when peerDatabase is provided.
+                if (peerDatabase != null) {
+                    TrustManager trustManager = new PeerIdentityTrustManager(peerDatabase, true);
+                    builder.trustManager(trustManager);
+                } else {
+                    // Fall back to truly insecure trust for quick dev runs without a DB
+                    builder.trustManager(InsecureTrustManagerFactory.INSTANCE);
+                }
             } else {
                 if (peerDatabase != null) {
                     // ENABLE TOFU (TRUST-ON-FIRST-USE): UNKNOWN PEERS AUTO-TRUSTED ON FIRST CONNECTION
